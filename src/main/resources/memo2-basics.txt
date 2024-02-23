@@ -1,0 +1,264 @@
+
+
+지난 게시글에서 JWT 란 무엇이고 왜 쓰는지 알아보았다.
+간단히 복습하자면, JWT 란 로그인(인증)하고 로그인 상태를 유지(인가)하는 기술이다.
+JWT 를 쓰는 이유는 기존에 로그인 기능을 구현하던 세션 기능의 단점을 보완하기 위해서다.
+세션 기능은 로그인 정보를 모두 서버 측에서 관리하기 때문에 사용자가 늘어날수록 무겁다.
+옛날에는 데이터를 모두 서버에서 관리했는데 요즘에는 client-side script 기술도 그렇고 클라이언트 쪽으로 많이 옮기는 것 같다.
+JWT가 무엇이고 왜 쓰는지 알았으니 이제 JWT를 어떻게 쓰는지 알아보자.
+
+다른 블로그들을 뒤져 보니 Spring Security 를 이용해서 많이 구현하더라.
+나는 Spring Security 는 뺐다.
+Spring Boot 위에 jjwt 라이브러리만 가지고 구현해 봤다.
+처음 JWT 를 배우는 입장에서 Spring Security 까지 결합하면
+어디까지가 Spring Security 기능이고 어디부터가 jjwt 기능인지 헷갈릴 것 같았다.
+따라서 가장 담백하고 단순한 형태부터 시작하고 싶어서 Spring Security 는 사용하지 않았다.
+
+우선 프로젝트에 jjwt 의존성을 추가한다.
+build.gradle 에 아래 dependency 를 추가한다.
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+	ext {
+		JJWT_VERSION = "0.12.3"
+	}
+	implementation "io.jsonwebtoken:jjwt-api:${JJWT_VERSION}"
+	runtimeOnly "io.jsonwebtoken:jjwt-gson:${JJWT_VERSION}"
+	runtimeOnly "io.jsonwebtoken:jjwt-impl:${JJWT_VERSION}"
+}
+
+이제 본격적으로 jjwt 를 사용해서 JWT 를 발급해 보자.
+나는 무엇가를 배울 때는 가장 간단한 형태부터 시작한다.
+처음에는 걷어낼 수 있는 내용을 모두 걷어낸다.
+그러면 더 이상 걷어낼 수 없는 뼈대만 남는다.
+그리고 그 뼈대에 조금씩 살을 붙여나간다.
+이런 흐름으로 배우면 기초부터 탄탄히 쌓을 수 있어서 개념을 튼튼하게 잡을 수 있다.
+따라서 JWT 도 가장 간단한 형태부터 살펴보자.
+
+
+토큰을 발급할 때 아무 데이터도 넣지 않고 발급만 하면 가장 간단한 형태가 나온다.
+Jwts.builder().compact();
+그러면 그냥 아래처럼 짧고 간단한 형태로 문자열을 던져준다.
+eyJhbGciOiJub25lIn0..
+Jwts 클래스의 builder() 함수를 호출하면 builder 객체를 돌려준다.
+받아 온 builder 객체에다가 이렇게 저렇게 설정을 추가한다.
+그러다가 마지막에 compact() 함수를 호출하면 조작한 토큰을 설정에 맞게 인코딩해서 문자열로 돌려준다.
+
+아까 돌려 받은 문자열을 자세히 보면
+복잡한 문자열이 있고 그 뒤에 마침표(".") 가 두 개 찍혀 있다.
+뒤에 가면 알겠지만 이 마침표가 구분자다.
+JWT 는 "A.B.C" 형태로 구성돼 있다.
+마침표 (".") 는 각 데이터 덩어리들을 구분하는 경계선 역할을 한다.
+A 는 header, B 는 payload, C 는 signature 데이터다.
+JWT 는 뜯어보면 header.payload.signature 로 구성돼 있는 것이다.
+위에서 돌려받은 "eyJhbGciOiJub25lIn0.." 는 "A.." 형태다.
+즉 header 만 있고 payload 와 signature 가 없는 상태다.
+
+발급 받은 토큰을 디코딩해 보면 아래 같은 JSON 데이터가 나온다.
+{
+  "alg": "none"
+}
+참고로 디코딩은 아래 사이트에서 할 수 있다.
+https://jwt.io/#debugger-io
+
+여기까지가 가장 기본적인 형태다.
+더 이상 걷어낼 수 없는 뼈대 같은 기능이다.
+jjwt 는 결국 토큰에 설정을 부여하거나 데이터를 추가하여
+JSON 데이터를 문자열로 인코딩해서 돌려주는 기능이다.
+
+그럼 이제 데이터를 뭐라도 추가해 보자.
+데이터는 builder 객체에 claim() 함수를 호출하면서 그 안에 파라미터로 (key, val) 값을 넣어주면 된다.
+String jwsNoSignature = Jwts.builder().claim("myKey", "myVal").compact();
+아까보다는 조금 더 복잡해졌다.
+compact() 를 실행해서 돌려받은 문자열도 복잡해졌다.
+eyJhbGciOiJub25lIn0.eyJteUtleSI6Im15VmFsIn0.
+
+토큰은 마침표를 경계선으로 데이터 덩어리들이 "A.B.C" 처럼 붙어 있는 형태라고 했다.
+그리고 그 데이터들은 각각 "header.payload.signature" 를 의미한다고 했다.
+지금 보니 돌려받은 문자열이 "A.B." 형태다.
+즉, header  와 payload 만 있고 signature 는 없는 형태다.
+돌려받은 문자열을 디코딩해 보면 아래 JSON 데이터가 나온다.
+즉, 빌더 객체에 claim(key, val) 를 호출하면 payload 를 추가할 수 있다.
+
+{
+  "alg": "none"
+}
+{
+     "myKey": "myVal"
+}
+
+이제 마지막으로 signature 를 추가해 보자.
+Jwts.builder().signWith(secretKey).compact();
+돌려주는 문자열도 달라졌다.
+eyJhbGciOiJIUzI1NiJ9..sIZFZ6p5O9-RC_2EnVjxyJ1_RxgyxqQbM5XFItcZyyE
+이번에는 "A..C" 형태다.
+앞에 올렸던 게시글에서도 설명했듯이,
+데이터가 바뀌면 이 signature 부분이 함께 바뀌기 때문에
+데이터가 토큰을 발급할 당시 그대로인지 아니면 중간에 조작된 데이터인지 알 수 있다.
+빌더 객체에 signWith() 를 호출하면서 안에 Key 를 넣어주면 signature 를 추가할 수 있다.
+
+디코딩 해보면 다음과 같다.
+{
+  "alg": "HS256"
+}
+{
+}
+아까와 다르게 header 의 "alg" 값이 바뀐 걸 볼 수 있다.
+signWith() 로 시그니처를 만들면 header 의 alg 값이 바뀐다.
+
+이제 "A.B.C" 형태를 완성해 보자.
+Jwts.builder().claim("myKey", "myVal").signWith(this.key).compact();
+payload 를 만드는 claim(),
+signature 를 만드는 signWith() 를 모두 추가한 뒤에
+마지막에 compact()를 호출했다.
+돌려주는 문자열은 이제 "A.B.C" 형태를 모두 갖췄다.
+eyJhbGciOiJIUzI1NiJ9.eyJteUtleSI6Im15VmFsIn0.a6bDSnfXVaOA6ah-GBbN0uh8R5WdHMNBpkzIP_pekW4
+
+디코딩 해보면 다음과 같다.
+{
+  "alg": "HS256"
+}
+{
+  "myKey": "myVal"
+}
+
+
+
+@Test
+public void issueJws() {
+    // 참고로 JWS와 JWE는 JWT의 종류에 속하며
+    // 클레임 셋이 암호화 된 JWT는 JWE(Java Web Encryption),
+    // 클레임 셋이 암호화 되지 않은 JWT는 JWS(Java Web Segniture)가 됩니다.
+    // 대부분 JWT라고 말하면 JWS를 칭하는 편입니다.
+    // https://targetcoders.com/jjwt-%EC%82%AC%EC%9A%A9-%EB%B0%A9%EB%B2%95/
+
+
+    // 헤더만 있고 페이로드랑 시그니처는 없음
+    // eyJhbGciOiJub25lIn0..
+    String jwsNoPayloadNoSignature  = Jwts.builder().compact();
+    System.out.println("jwsNoPayloadNoSignature = " + jwsNoPayloadNoSignature);
+
+    // 헤더랑 시그니처만 있고 페이로드가 없음
+    // eyJhbGciOiJIUzI1NiJ9..sIZFZ6p5O9-RC_2EnVjxyJ1_RxgyxqQbM5XFItcZyyE
+    String jwsNoPayload = Jwts.builder().signWith(this.key).compact();
+    System.out.println("jwsNoPayload = " + jwsNoPayload);
+
+    // 헤더랑 페이로드만 있고 시그니처가 없음
+    // eyJhbGciOiJub25lIn0.eyJteUtleSI6Im15VmFsIn0.
+    String jwsNoSignature = Jwts.builder().claim("myKey", "myVal").compact();
+    System.out.println("jwsNoSignature = " + jwsNoSignature);
+
+    // 헤더랑 페이로드랑 시그니처 다 있음
+    // eyJhbGciOiJIUzI1NiJ9.eyJteUtleSI6Im15VmFsIn0.a6bDSnfXVaOA6ah-GBbN0uh8R5WdHMNBpkzIP_pekW4
+    String jws = Jwts.builder().claim("myKey", "myVal").signWith(this.key).compact();
+    System.out.println("jws = " + jws);
+
+    // 출력 결과 보면 A.B.C 형태이고 페이로드나 시그니처가 비어 있더라도 .은 그대로 찍힘.
+    // JwtBuilder 객체 하나 만들어서 subject 도 set 하고 issuer 도 set 하고 payload 도 set 하고 하다가
+    // 마지막에 compact() 가 결국 문자열로 바꿔주는 흐름
+    this.verifyTest(jws);
+    //
+}
+
+
+
+위에서 가장 간단한 형태를 먼저 살펴보았다.
+이제 조금 더 복잡한 형태를 만들어 보자.
+빌더 객체에 여러 가지 함수를 호출할 수 있다.
+header() 를 호출하면 header 객체를 얻을 수 있다.
+이 header 객체에 add() 를 호출해서 (key, val) 을 파라미터로 넣어주면
+내가 원하는 데이터를 header 에 추가할 수도 있고
+keyId() 함수로 kid 값을 넣어줄 수도 있다.
+header 설정이 끝나고 header 발도 객체에 and() 함수를 호출하면 다시 jwt 빌더 객체를 돌려받는다.
+
+payload 도 다양하게 데이터를 추가할 수 있다.
+위에서 빌더 객체에 claim() 함수를 실행하면 우리가 정한 데이터를 추가할 수 있음을 알아봤다.
+claims() 를 호출하면서 (map) 데이터를 파라미터로 넣으면 payload 에 데이터들을 한 번에 추가한다.
+우리가 만든 데이터가 아니라 jwt 에서 미리 정해둔 데이터들을 추가하는 함수도 있다.
+subject(), audience(), expiration(), issuedAt() 등이 있다.
+토큰을 발급한 사람, 발급 받은 사람, 발급한 시간, 유효 시간 등등이다.
+데이터 타입은 꼭 JSON 이 아니어도 된다.
+이론적으로 payload 에는 어떤 형태의 데이터든 넣을 수 있다.
+예를 들어 byte[] 자료형을 추가하려면 content() 를 실행하면 된다.
+
+
+@Test
+public void createJwtTest() {
+// 1.Use the Jwts.builder() method to create a JwtBuilder instance.
+// 2.Optionally set any header parameters as desired.
+// 3.Call builder methods to set the payload content or claims.
+// 4.Optionally call signWith or encryptWith methods if you want to digitally sign or encrypt the JWT.
+// 5.Call the compact() method to produce the resulting compact JWT string.
+
+Key signingKey = this.key;
+byte[] myContent = "this is my content".getBytes(StandardCharsets.UTF_8);
+Map<String, String> myMap = new HashMap<String, String>();
+URI myUri = URI.create("this-is-x509uri");
+myMap.put("map1", "val1");
+myMap.put("map2", "val2");
+String jwt = Jwts.builder()                     // (1)
+        .header()                               // (2) optional
+            .keyId("myKeyId")                      // set keyId
+            .x509Url(myUri)        // set x509uri
+            .add("add1", "val1")                // optional payload
+            .add("add2", "val2")                // optional payload
+            .add(myMap)                               // optional payload
+            .and()                                    // go back to the JwtBuilder
+        .subject("John")                      // (3) optional
+        .claim("claim1", "data1")                   // JSON Claims
+        .claim("claim2", "data2")                   // JSON Claims
+        .claims(myMap)                              // JSON Claims
+//                .content(myContent, "text/plain")                //   or  any byte[] content, with media type
+        .signWith(signingKey)                    // (4) if signing, or
+        //.encryptWith(key, keyAlg, encryptionAlg)  //     if encrypting
+        .compact();                              // (5)
+
+System.out.println("jwt = " + jwt);
+}
+
+
+이제 토큰을 발급하는 방법을 알아봤으니 반대로
+클라이언트로부터 전달 받은 토큰이 유효한 토큰인지 확인하는 방법을 알아보자.
+전달 받은 토큰을 파싱하기 위해 parser() 를 호출한다.
+그러면 parser 빌더 객체를 돌려받는다.
+이 빌더 객체에 verifyWith() 또는 decryptWith() 함수를 호출하면서 파라미터로 (key) 를 넣어준다.
+parser 빌더 객체에 key 를 주입했으면 build() 함수를 호출해서 parser 를 얻는다.
+이제 이 parser 객체를 이용해서 토큰을 파싱하면 된다.
+parser 객체 객체에 parseSignedClaims() 또는 parseEncryptedClaims() 를 호출하고 그 안에 파라미터로 (token) 를 넣어주면 된다.
+ 
+
+
+@Test
+public void constantParsingTest() {
+    String jwsString = "eyJhbGciOiJIUzI1NiJ9.eyJteUtleSI6Im15VmFsIn0.brAFL7RWvEO0ki2dckQnHiJhxpsQDyGo_-c4wbrAkhQ";;
+    String jweString = "eyJhbGciOiJIUzI1NiJ9.eyJteUtleSI6Im15VmFsIn0.brAFL7RWvEO0ki2dckQnHiJhxpsQDyGo_-c4wbrAkhQ";;
+    SecretKey secretKey = null;
+    PublicKey publicKey = null;
+    PrivateKey privateKey = null;
+    // constant parsing key
+    // >> If parsing a JWS and the JWS was signed with a SecretKey, the same SecretKey should be specified on the JwtParserBuilder. For example:
+    // 'SecretKey'로 서명된 JWS 구문을 분석하는 경우, 해당 키와 동일한 'SecretKey'를 'JwtParserBuilder'에 지정해야 합니다. 예를 들어 다음과 같습니다:
+    Jwts.parser()
+            .verifyWith(secretKey) // <----
+            .build()
+            .parseSignedClaims(jwsString);
+    // >> If parsing a JWS and the JWS was signed with a PrivateKey, that key’s corresponding PublicKey (not the PrivateKey) should be specified on the JwtParserBuilder. For example
+    // 'PrivateKey'로 서명된 JWS 구문을 분석하는 경우, 해당 키의 'PublicKey'('PrivateKey'가 아님)를 'JwtParserBuilder'에 지정해야 합니다. 예를 들어 다음과 같습니다:
+    Jwts.parser()
+            .verifyWith(publicKey) // <---- publicKey, not privateKey
+            .build()
+            .parseSignedClaims(jwsString);
+    // >> If parsing a JWE and the JWE was encrypted with direct encryption using a SecretKey, the same SecretKey should be specified on the JwtParserBuilder. For example:
+    // 'SecretKey'를 사용하여 직접 암호화된 JWE를 구문 분석하는 경우, 해당 키와 동일한 'SecretKey'를 'JwtParserBuilder'에 지정해야 합니다. 예를 들어 다음과 같습니다:
+    Jwts.parser()
+            .decryptWith(secretKey) // <---- or a Password from Keys.password(charArray)
+            .build()
+            .parseEncryptedClaims(jweString);
+    // >> If parsing a JWE and the JWE was encrypted with a key algorithm using with a PublicKey, that key’s corresponding PrivateKey (not the PublicKey) should be specified on the JwtParserBuilder. For example:
+    // 'PublicKey'를 사용한 키 알고리즘으로 암호화환 JWE를 구문 분석하는 경우, 해당 키의 'PrivateKey'('PublicKey'가 아님)를 'JwtParserBuilder'에 지정해야 합니다. 예를 들어 다음과 같습니다:
+    Jwts.parser()
+            .decryptWith(privateKey) // <---- privateKey, not publicKey
+            .build()
+            .parseEncryptedClaims(jweString);
+}
