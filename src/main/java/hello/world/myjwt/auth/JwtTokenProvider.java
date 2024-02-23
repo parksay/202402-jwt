@@ -1,4 +1,4 @@
-package hello.world.myjwt;
+package hello.world.myjwt.auth;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
