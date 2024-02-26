@@ -142,6 +142,8 @@ public class JwtTest {
                 .add(myMap)
                 // ... etc ...
                 .build();  // <---- not 'and()'
+
+        System.out.println("header = " + header);
     }
 
     @Test

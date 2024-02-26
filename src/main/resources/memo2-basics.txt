@@ -220,13 +220,13 @@ System.out.println("jwt = " + jwt);
 
 이제 토큰을 발급하는 방법을 알아봤으니 반대로
 클라이언트로부터 전달 받은 토큰이 유효한 토큰인지 확인하는 방법을 알아보자.
-전달 받은 토큰을 파싱하기 위해 parser() 를 호출한다.
+전달 받은 토큰을 파싱하고자 parser() 를 호출한다.
 그러면 parser 빌더 객체를 돌려받는다.
-이 빌더 객체에 verifyWith() 또는 decryptWith() 함수를 호출하면서 파라미터로 (key) 를 넣어준다.
+이 빌더 객체에 verifyWith() 또는 decryptWith() 함수를 호출하면서 파라미터로 (key) 를 주입한다.
 parser 빌더 객체에 key 를 주입했으면 build() 함수를 호출해서 parser 를 얻는다.
 이제 이 parser 객체를 이용해서 토큰을 파싱하면 된다.
 parser 객체 객체에 parseSignedClaims() 또는 parseEncryptedClaims() 를 호출하고 그 안에 파라미터로 (token) 를 넣어주면 된다.
- 
+
 
 
 @Test
